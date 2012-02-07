@@ -4,6 +4,11 @@
     "version" : "0.1.0",
     "homepage": "http://jorritd.github.com/node-watch/",
     "author" : "Jorrit Duin <jorrit.duin@gmail.com> (https://github.com/jorritd)",
+    "keywords": [
+        "change",
+        "file",
+        "tdd"
+    ],
     "repository" : {
         "type" : "git",
         "url" : "git://github.com/jorritd/node-watch.git"

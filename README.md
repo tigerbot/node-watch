@@ -1,7 +1,18 @@
 # node-watch
 
-Simple utility for nodejs to watch file changes
-a file change is a file whom's mtime is changed
+Simple utility for nodejs to watch file changes.
+
+A file change is:
+
+* a **file** whom's mtime is changed
+* a **file** which is added to a 'watched' folder
+* a **file** which is deleted form a 'watched' folder
+
+A new feature is to watch folders recurively.
+However, polling for changes on the file system is slow.
+And I did not test this module on a large number of files and
+nested folders.
+
 
 This utility is handy for e.g. automatic testing in combination with a testing frame-work,
 An example lives within the JakeFile (jake and docco required)
@@ -11,8 +22,6 @@ An example lives within the JakeFile (jake and docco required)
 Make changes in the src/watch.js file or the specs/watchSpec.js file and see te specs running automaticly
 
 ## Install:
-
-
 
      npm install nodewatch
      
