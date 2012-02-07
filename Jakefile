@@ -1,16 +1,19 @@
+var fs = require('fs');
+var path= require('path');
+
 desc("create build file");
-task("build",["test_integration","doc"],function(){
+task("build",["docs"],function(){
     var fs = require("fs");
     var jsp = require("uglify-js").parser;
     var pro = require("uglify-js").uglify;
-    var orig_code = fs.readFileSync(process.cwd()+"/src/watch/watch.js").toString();
+    var orig_code = fs.readFileSync(process.cwd()+"/src/watch.js").toString();
     var ast = jsp.parse(orig_code); // parse code and get the initial AST
     // ast = pro.ast_mangle(ast); // get a new AST with mangled names
     // ast = pro.ast_squeeze(ast); // get an AST with compression optimizations
     var options = {};
     options.beautify = true;
     var final_code = pro.gen_code(ast,options); // compressed code here
-    var fd = fs.openSync(process.cwd()+"/lib/watch/watch.js","w");
+    var fd = fs.openSync(process.cwd()+"/lib/watch.js","w");
     fs.writeSync(fd, final_code);
    console.log('Build done');
    console.log('Test integration');
@@ -18,9 +21,15 @@ task("build",["test_integration","doc"],function(){
 
 
 desc("create docs");
-task("doc",function(){
+task("docs",function(){
+    var ar_files = [];
+  fs.readdirSync('./src').forEach(function(scrpt){
+    if(path.extname(scrpt) === '.js'){
+      ar_files.push('./src/'+scrpt)
+    }
+  }); 
     var spawn = require('child_process').spawn,
-        doc = spawn('docco', ['src/watch/watch.js']);
+        doc = spawn('node_modules/docco/bin/docco',ar_files);
     
     doc.stdout.on('data', function (data) {
          process.stdout.write(data);
@@ -29,15 +38,15 @@ task("doc",function(){
         process.stderr.write( data);
     });
 });
+
 desc("run specs");
 task("test",function(){
-    // Jasmine is cool
     var jasmine = require('jasmine-node');
     
     jasmine.dev_mode = "src";
     
     var Path= require('path')
-    var specFolder = Path.join(process.cwd(), "spec");
+    var specFolder = Path.join(process.cwd(), "specs");
 
     for (var key in jasmine)
       global[key] = jasmine[key];
@@ -45,14 +54,27 @@ task("test",function(){
     var isVerbose = false;
     var showColors = true;
     var extentions = "js";
+    var teamcity = false;
+    var useRequireJs = false;
+
+    var junitreport = {
+      report: false,
+      savePath : "./reports/",
+      useDotNotation: true,
+      consolidate: true
+    }
     jasmine.loadHelpersInFolder(specFolder, new RegExp("[-_]helper\\.(" + extentions + ")$"));
     jasmine.executeSpecsInFolder(specFolder, function(runner, log){
       if (runner.results().failedCount == 0) {
+        // test.kill('SIGHUP');
         process.exit(0);
+        
       } else {
+       //  test.kill('SIGHUP');
         process.exit(1);
+        // test.kill('SIGHUP');
       }
-    }, isVerbose, showColors, new RegExp(".spec\\.(" + extentions + ")$", 'i'));
+    }, isVerbose, showColors, teamcity, useRequireJs, new RegExp(".spec\\.(" + extentions + ")$", 'i'),junitreport);
 });
 
 desc("run specs for integration");
