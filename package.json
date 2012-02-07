@@ -22,7 +22,7 @@
         "VNLS":"0.0.1",
         "docco":"0.3.0",
         "jasmine-node":"1.0.20",
-        "nodewatch":"0.0.3",
+        "nodewatch":"0.1.0",
         "uglify-js":"1.2.5"
     },
     "engines" : { "node" : ">=0.4.0" },
