@@ -110,7 +110,7 @@ task('autotest',function(){
         busy = false,
         test = null;
         
-    watch.add("./spec").add("./src/watch").onChange(function(file){
+    watch.add("./specs").add("./src/watch.js").onChange(function(file){
         if(!busy){
             busy = true;
             test    = spawn('jake', ['test']);

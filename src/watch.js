@@ -261,7 +261,7 @@ var WatchClass = function() {
       // It doesn't really matter what we assign to this key right now,
       // we merely have to assign something.
       self.__watchedItems[file] = true;
-      //
+
       self.fs.watchFile(file, function watchMe(prev, curr) {
         try {
           // This will cause an error
