@@ -61,6 +61,10 @@ var WatchClass = function() {
   function Watch(options) {
     // Call the super constructor first to initialize the emitter
     EventEmitter.call(this);
+    // objects to track the files and directories we are explicitly
+    // told to watch, and the files and directories that we're watching
+    // because they are in directories we're explicitly to to watch
+    this.__topLvlWatchers = [];
     this.__watchedItems = {};
     this.fs = require('fs');
     this.path = require('path');
@@ -90,11 +94,9 @@ var WatchClass = function() {
   // returns this object
   
   Watch.prototype.remove = function(str_file_or_path) {
-    var recursive = false;
-    if(this.__watchedItems.hasOwnProperty(str_file_or_path)){
-        recursive = this.__watchedItems[str_file_or_path].recursive;
-    }
-    return this.__handle(false, str_file_or_path , recursive);
+    // we don't really need to specify recursive here,
+    // __handle doesn't use it anyway if add isn't true
+    return this.__handle(false, str_file_or_path);
   };
   
   // ## Public method: onChange(callback) ##
@@ -150,6 +152,19 @@ var WatchClass = function() {
   
   Watch.prototype.__handle = function(add, str_file_or_path, recursive) {
     str_file_or_path = this.path.resolve(str_file_or_path);
+
+    // __handle is only called by the public add/remove functions,
+    // so we can add/remove anything that gets to this point to/from
+    // the list of explicitly watched items
+    if (add) {
+      this.__topLvlWatchers.push(str_file_or_path);
+    } else {
+      var index = this.__topLvlWatchers.indexOf(str_file_or_path);
+      if (index >= 0) {
+        this.__topLvlWatchers.splice(index, 1);
+      }
+    }
+
     // Do not proccess deleted files
     var stat = null;
     try{
@@ -161,6 +176,12 @@ var WatchClass = function() {
         throw e;
       }else{
         stat = false;
+        // If the file is deleted but still being watched make sure
+        // we remove the listeners for it.
+        if (self.__watchedItems.hasOwnProperty(str_file_or_path)) {
+          self.fs.unwatchFile(str_file_or_path);
+          delete self.__watchedItems[str_file_or_path];
+        }
       }
     }
     if(stat){
@@ -214,10 +235,10 @@ var WatchClass = function() {
   
   // ## Private method: __file(boolean, string) ##
   // Finally add (add==true) or remove a
-  // file from watching, only files should be passed here
-  // recursive is therefor obsolete
+  // file from watching, only files should be passed here,
+  // therefore recursive is obsolete.
   // Handle only files
-  // In the watch usage, this should no be async
+  // In the watch usage, this should not be async
   Watch.prototype.__file = function(add, file) {
     var self = this;
     var is_file = false;
@@ -255,6 +276,13 @@ var WatchClass = function() {
         catch(e) {
           if (e.code === 'ENOENT') {
             self.emit("change", file, prev, curr,'delete');
+            // If this file isn't explicitly being watched, unwatch it now.
+            // Otherwise we'll wait until the user explicitly removes it
+            // from the list
+            if (self.__topLvlWatchers.indexOf(file) < 0) {
+              self.fs.unwatchFile(file);
+              delete self.__watchedItems[file];
+            }
             return;
           }else{
             throw(e);
@@ -275,7 +303,21 @@ var WatchClass = function() {
   Watch.prototype.__rescan = function(add,folder, recursive, reportNew){
     var self = this;
     self.fs.stat(folder, function(err,stat){
-      if(!err){
+      if(err){
+        if(err.code !== 'ENOENT'){
+          throw err;
+          return;
+        }
+        // The watched directory has been deleted, so if it's part of
+        // a recursively watched directory remove it's watcher.
+        // We won't need to call anything recursively to remove watchers
+        // for any descendants because they to will have been deleted and
+        // have this callback.
+        if(self.__topLvlWatchers.indexOf(folder) < 0){
+          self.fs.unwatchFile(folder);
+          delete self.__watchedItems[folder];
+        }
+      }else{
         var files = self.fs.readdirSync(folder);
         files.forEach(function (file) {
           var full_path = self.path.join(folder, file);
