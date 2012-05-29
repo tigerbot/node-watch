@@ -32,7 +32,7 @@
 //          
 //        console.log(file);
 //        console.log(prev.mtime);
-//        console.log(curr,mtime);
+//        console.log(curr.mtime);
 //        console.log(action);
 //      });
 //   
@@ -43,32 +43,14 @@
 //      watch.remove("./spec").remove("./lib/watch");
 //  
 
-// *nodejs requirements: EventEmitter, fs, path*
-var EventEmitter = require("events").EventEmitter;
+// *nodejs requirements: EventEmitter, fs, path, util*
+var EventEmitter = require("events").EventEmitter, util = require("util");
 
-// *private helper function:* 
-// extends child with the prototypes of parent and return the extended child 
-
-var __hasProp = Object.prototype.hasOwnProperty, __extends = function(child, parent) {
-  for (var key in parent) {
-    if (__hasProp.call(parent, key)) {
-      child[key] = parent[key];
-    }
-  }
-  function ctor() {
-    this.constructor = child;
-  }
-  ctor.prototype = parent.prototype;
-  child.prototype = new ctor;
-  child.__super__ = parent.prototype;
-  return child;
-};
 // ## Watch class declaration ##
-// extends from [EventEmitter](http://nodejs.org/docs/v0.4.8/api/events.html#events.EventEmitter)
+// extends from [EventEmitter](http://nodejs.org/api/events.html#events.EventEmitter)
 
 var WatchClass = function() {
   "use strict";
-  __extends(Watch, EventEmitter);
   // ### PUBLIC METHODS ###
   // 
   // -----------------------
@@ -77,11 +59,14 @@ var WatchClass = function() {
   // ## Watch class Constructor ##
   
   function Watch(options) {
+    // Call the super constructor first to initialize the emitter
+    EventEmitter.call(this);
     this.__watchedFolders = {};
     this.fs = require('fs');
     this.path = require('path');
   }
-  
+  util.inherits(Watch, EventEmitter);
+
   // ## Public method: add(path , [recursive]) ##
   // `path` is an absolute or relative path
   // to a file or dir to add (watch),
@@ -93,14 +78,6 @@ var WatchClass = function() {
   
   Watch.prototype.add = function(str_file_or_path, recursive) {
     recursive = recursive || false;
-    if (str_file_or_path.substring(0, 1) == ".") {
-      str_file_or_path = process.cwd() + "/" + str_file_or_path;
-    }
-    // str_file_or_path = this.path.normalize(str_file_or_path);
-    
-    // We should throw to be backbwards compatible
-    // On the bliblic interface
-    var stat = this.fs.statSync(str_file_or_path);
     
     return this.__handle(true, str_file_or_path, recursive);
   };
@@ -115,7 +92,7 @@ var WatchClass = function() {
   Watch.prototype.remove = function(str_file_or_path) {
     var recursive = false;
     if(this.__watchedFolders.hasOwnProperty(str_file_or_path)){
-        recursive = this.__watchedFolders[str_file_or_path].recursive
+        recursive = this.__watchedFolders[str_file_or_path].recursive;
     }
     return this.__handle(false, str_file_or_path , recursive);
   };
@@ -170,16 +147,19 @@ var WatchClass = function() {
   // returns this object
   
   Watch.prototype.__handle = function(add, str_file_or_path, recursive) {
-    if (str_file_or_path.substring(0, 1) == ".") {
-      str_file_or_path = process.cwd() + "/" + str_file_or_path;
-    }
-    str_file_or_path = this.path.normalize(str_file_or_path);
+    str_file_or_path = this.path.resolve(str_file_or_path);
     // Do not proccess deleted files
     var stat = null;
     try{
       stat = this.fs.statSync(str_file_or_path);
     }catch(e){
-      stat = false;
+      if (add) {
+        // We should throw on add to be backwards compatible
+        // On the bliblic interface
+        throw e;
+      }else{
+        stat = false;
+      }
     }
     if(stat){
       if (stat.isFile()) {
@@ -232,7 +212,7 @@ var WatchClass = function() {
           }
         });
       }else{
-        throw 'Folder allready being watched';
+        throw new Error('Folder already being watched');
       }
 
     }else{
@@ -300,7 +280,7 @@ var WatchClass = function() {
       if(!err){
         var files = self.fs.readdirSync(folder);
         for (var i = 0; i < files.length; i++) {
-          var full_path = folder + "/" + files[i];
+          var full_path = self.path.join(folder, files[i]);
           if (self.fs.statSync(full_path).isFile()) {
             self.__file(add, full_path);
             // If we read a directory, call recursively to `__dir` method
@@ -311,7 +291,7 @@ var WatchClass = function() {
         }
       }
     });
-  }
+  };
 
   return Watch;
 }();
